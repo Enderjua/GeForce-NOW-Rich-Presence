@@ -44,13 +44,14 @@ class CookieManager:
             return None
             
         browsers_to_try = [
-            ('Firefox', browser_cookie3.firefox),
+            ('Edge', browser_cookie3.edge),
             ('Chrome', browser_cookie3.chrome),
+            ('Firefox', browser_cookie3.firefox),
             ('Brave', browser_cookie3.brave),
             ('Chromium', browser_cookie3.chromium),
-            ('Edge', browser_cookie3.edge),
         ]
         
+        # First pass: try to find a VALID cookie
         for name, get_cookies in browsers_to_try:
             try:
                 logger.info(f"🧩 Attempting to read Steam cookie from {name} (browser_cookie3)...")
@@ -58,11 +59,27 @@ class CookieManager:
                 for cookie in cj:
                     if cookie.name == 'steamLoginSecure':
                         val = cookie.value
-                        logger.info(f"✅ Automatic cookie obtained from {name} (browser_cookie3).")
-                        save_cookie_to_env(val, ENV_PATH)
-                        return val
+                        if self.validate_cookie(val):
+                            logger.info(f"✅ Valid automatic cookie obtained from {name} (browser_cookie3).")
+                            save_cookie_to_env(val, ENV_PATH)
+                            return val
+                        else:
+                            logger.debug(f"⚠️ Cookie from {name} is expired/invalid.")
             except Exception as e:
                 logger.debug(f"browser_cookie3 ({name}) failed: {e}")
+                
+        # Second pass: if no valid cookie is found, return the first one we can find as a fallback
+        for name, get_cookies in browsers_to_try:
+            try:
+                cj = get_cookies(domain_name='steamcommunity.com')
+                for cookie in cj:
+                    if cookie.name == 'steamLoginSecure':
+                        val = cookie.value
+                        logger.info(f"✅ Fallback cookie obtained from {name} (browser_cookie3).")
+                        save_cookie_to_env(val, ENV_PATH)
+                        return val
+            except Exception:
+                pass
                 
         logger.info("⚠️ No steamLoginSecure cookie found in any accessible browser profile.")
         return None
